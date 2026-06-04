@@ -52,23 +52,37 @@ ixsmi-vllm corex-info --corex-root /usr/local/corex-4.4.0 --visible-devices 0,1,
 
 ## OpenAI-compatible API
 
-安装服务依赖并启动：
+安装服务和 Hugging Face 依赖后，可启动真实模型服务：
 
 ```powershell
-python -m pip install -e .[server]
+python -m pip install -e .[server,hf]
+ixsmi-vllm-server --host 0.0.0.0 --port 8000 --model sshleifer/tiny-gpt2 --backend hf --device auto
+```
+
+如果 GPU 驱动/CUDA 环境不可用，可先强制 CPU 验证 API：
+
+```powershell
+ixsmi-vllm-server --host 0.0.0.0 --port 8000 --model sshleifer/tiny-gpt2 --backend hf --device cpu
+```
+
+`toy` 后端只用于调试 API 链路，不会加载真实模型，也不会使用 GPU：
+
+```powershell
 ixsmi-vllm-server --host 0.0.0.0 --port 8000 --model toy --backend toy
 ```
+
+> 当前 `corex` 已支持 BI-V150S 设备初始化/计数检测；真实模型推理仍需把厂商 prefill/decode kernel API 接入 `CoreXRuntimeAdapter.decode()` 后，才能使用 `--backend corex` 执行模型。
 
 Completions API：
 
 ```powershell
-curl http://127.0.0.1:8000/v1/completions -H "Content-Type: application/json" -d '{"model":"toy","prompt":"Hello, my name is","max_tokens":8,"temperature":0}'
+curl http://127.0.0.1:8000/v1/completions -H "Content-Type: application/json" -d '{"model":"sshleifer/tiny-gpt2","prompt":"Hello, my name is","max_tokens":8,"temperature":0}'
 ```
 
 Chat Completions API：
 
 ```powershell
-curl http://127.0.0.1:8000/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"toy","messages":[{"role":"user","content":"Say hello"}],"max_tokens":8,"temperature":0}'
+curl http://127.0.0.1:8000/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"sshleifer/tiny-gpt2","messages":[{"role":"user","content":"Say hello"}],"max_tokens":8,"temperature":0}'
 ```
 
 ## 后续实现路线
