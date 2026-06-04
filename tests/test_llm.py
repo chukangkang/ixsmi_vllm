@@ -1,8 +1,11 @@
 import pytest
+import sys
+import types
 
 from ixsmi_vllm import LLM, SamplingParams
 from ixsmi_vllm.backends.base import DecodeResult, DecodeState, KVTensorRef
 from ixsmi_vllm.backends.corex import CoreXBackend
+from ixsmi_vllm.backends.hf import HuggingFaceBackend
 from ixsmi_vllm.backends.base import BackendConfig
 from ixsmi_vllm.cache import KVCacheManager
 from ixsmi_vllm.tokenizers import HuggingFaceTokenizer
@@ -122,3 +125,37 @@ def test_hf_tokenizer_reports_missing_optional_dependency(monkeypatch) -> None:
     monkeypatch.setattr("builtins.__import__", fake_import)
     with pytest.raises(RuntimeError, match=r"pip install -e \.\[hf\]"):
         HuggingFaceTokenizer("sshleifer/tiny-gpt2")
+
+
+def test_hf_backend_auto_device_without_accelerate_avoids_device_map(monkeypatch) -> None:
+    captured_kwargs = {}
+
+    class FakeCuda:
+        @staticmethod
+        def is_available() -> bool:
+            return False
+
+    class FakeTorch(types.SimpleNamespace):
+        cuda = FakeCuda()
+
+    class FakeModel:
+        def eval(self):
+            return None
+
+        def to(self, device):
+            self.device = device
+
+    class FakeAutoModelForCausalLM:
+        @staticmethod
+        def from_pretrained(model, **kwargs):
+            captured_kwargs.update(kwargs)
+            return FakeModel()
+
+    fake_transformers = types.SimpleNamespace(AutoModelForCausalLM=FakeAutoModelForCausalLM)
+    monkeypatch.setitem(sys.modules, "torch", FakeTorch())
+    monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
+    monkeypatch.setattr(HuggingFaceBackend, "_has_accelerate", lambda self: False)
+
+    HuggingFaceBackend(BackendConfig(model="fake-model", device="auto"))
+
+    assert "device_map" not in captured_kwargs

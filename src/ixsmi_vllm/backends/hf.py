@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib.util
+
 from ixsmi_vllm.backends.base import (
     BackendConfig,
     DecodeResult,
@@ -29,11 +31,23 @@ class HuggingFaceBackend(ModelBackend):
         self.torch = torch
         model_kwargs = {"trust_remote_code": config.trust_remote_code}
         if config.device == "auto":
-            model_kwargs["device_map"] = "auto"
+            if self._has_accelerate():
+                model_kwargs["device_map"] = "auto"
+            else:
+                config = BackendConfig(
+                    model=config.model,
+                    device="cuda" if torch.cuda.is_available() else "cpu",
+                    dtype=config.dtype,
+                    tensor_parallel_size=config.tensor_parallel_size,
+                    trust_remote_code=config.trust_remote_code,
+                )
         self.model = AutoModelForCausalLM.from_pretrained(config.model, **model_kwargs)
         self.model.eval()
         if config.device != "auto":
             self.model.to(config.device)
+
+    def _has_accelerate(self) -> bool:
+        return importlib.util.find_spec("accelerate") is not None
 
     def init_state(self, token_ids: list[int]) -> DecodeState:
         return DecodeState()

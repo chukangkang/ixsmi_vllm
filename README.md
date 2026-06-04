@@ -26,6 +26,8 @@ python -m pip install -e .[hf]
 ixsmi-vllm generate --backend hf --model sshleifer/tiny-gpt2 --prompt "Hello, my name is" --max-tokens 16
 ```
 
+> `[hf]` 会安装 `transformers`、`torch` 和 `accelerate`。如果手动安装依赖且缺少 `accelerate`，框架会自动从 `device_map="auto"` 回退到普通 `cuda`/`cpu` 加载。
+
 ## CLI 示例
 
 ```powershell
