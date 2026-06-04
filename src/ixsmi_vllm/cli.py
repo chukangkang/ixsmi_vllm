@@ -12,7 +12,13 @@ def build_parser() -> argparse.ArgumentParser:
     generate = subparsers.add_parser("generate", help="Generate text for a prompt")
     generate.add_argument("--prompt", required=True)
     generate.add_argument("--model", default="toy")
-    generate.add_argument("--backend", default="toy", choices=["toy", "corex", "bi-v150s", "biv150s"])
+    generate.add_argument(
+        "--backend",
+        default="toy",
+        choices=["toy", "hf", "huggingface", "corex", "bi-v150s", "biv150s"],
+    )
+    generate.add_argument("--device", default="auto")
+    generate.add_argument("--trust-remote-code", action="store_true")
     generate.add_argument("--max-tokens", type=int, default=16)
     generate.add_argument("--temperature", type=float, default=1.0)
     generate.add_argument("--top-p", type=float, default=1.0)
@@ -23,7 +29,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     if args.command == "generate":
-        llm = LLM(model=args.model, backend=args.backend)
+        llm = LLM(
+            model=args.model,
+            backend=args.backend,
+            device=args.device,
+            trust_remote_code=args.trust_remote_code,
+        )
         params = SamplingParams(
             max_tokens=args.max_tokens,
             temperature=args.temperature,

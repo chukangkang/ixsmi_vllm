@@ -24,6 +24,10 @@ class SimpleTokenizer:
         return {self._token_to_id[token] for token in self.special_tokens}
 
     @property
+    def eos_token_id(self) -> int | None:
+        return self._token_to_id["<eos>"]
+
+    @property
     def vocab_size(self) -> int:
         return len(self._token_to_id)
 

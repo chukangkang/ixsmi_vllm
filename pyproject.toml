@@ -14,6 +14,7 @@ dependencies = []
 
 [project.optional-dependencies]
 server = ["fastapi>=0.110", "uvicorn[standard]>=0.27"]
+hf = ["transformers>=4.51", "torch>=2.1"]
 dev = ["pytest>=8.0"]
 
 [project.scripts]

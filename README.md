@@ -19,6 +19,13 @@ python examples/offline_generate.py
 pytest
 ```
 
+如需接入真实 Hugging Face tokenizer / causal LM：
+
+```powershell
+python -m pip install -e .[hf]
+ixsmi-vllm generate --backend hf --model sshleifer/tiny-gpt2 --prompt "Hello, my name is" --max-tokens 16
+```
+
 ## CLI 示例
 
 ```powershell
@@ -28,9 +35,9 @@ ixsmi-vllm generate --prompt "Hello, my name is" --max-tokens 8
 ## 后续实现路线
 
 - Step 1：完成 toy 后端与批处理推理（当前已实现）
-- Step 2：接入真实 tokenizer / Hugging Face 模型
-- Step 3：实现连续批处理（continuous batching）
-- Step 4：实现 KV cache block manager / PagedAttention 数据结构
+- Step 2：接入真实 tokenizer / Hugging Face 模型（当前已实现，可选依赖 `[hf]`）
+- Step 3：实现连续批处理（continuous batching）（当前已实现 step-wise scheduler）
+- Step 4：实现 KV cache block manager / PagedAttention 数据结构（当前已实现 token-id block table，占位真实 KV tensor）
 - Step 5：接入 BI-V150S corex.4.4.0 runtime kernels
 - Step 6：完善 OpenAI `/v1/completions`、`/v1/chat/completions`
 

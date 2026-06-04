@@ -10,6 +10,7 @@ class BackendConfig:
     device: str = "auto"
     dtype: str = "float16"
     tensor_parallel_size: int = 1
+    trust_remote_code: bool = False
 
 
 class ModelBackend(ABC):
