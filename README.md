@@ -50,6 +50,27 @@ ixsmi-vllm corex-info --corex-root /usr/local/corex-4.4.0 --visible-devices 0,1,
 
 该命令会设置 `IX_VISIBLE_DEVICES`、`ILUVATAR_COREX_ROOT`、`LD_LIBRARY_PATH`、`VLLM_TARGET_DEVICE`、`CUDA_VISIBLE_DEVICES`、`CUDA_HOME`，加载 `libixthunk.so` / `libcuda.so.1`，并调用 CUDA Driver API 的 `cuInit()` 与 `cuDeviceGetCount()`。
 
+## OpenAI-compatible API
+
+安装服务依赖并启动：
+
+```powershell
+python -m pip install -e .[server]
+ixsmi-vllm-server --host 0.0.0.0 --port 8000 --model toy --backend toy
+```
+
+Completions API：
+
+```powershell
+curl http://127.0.0.1:8000/v1/completions -H "Content-Type: application/json" -d '{"model":"toy","prompt":"Hello, my name is","max_tokens":8,"temperature":0}'
+```
+
+Chat Completions API：
+
+```powershell
+curl http://127.0.0.1:8000/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"toy","messages":[{"role":"user","content":"Say hello"}],"max_tokens":8,"temperature":0}'
+```
+
 ## 后续实现路线
 
 - Step 1：完成 toy 后端与批处理推理（当前已实现）
@@ -59,6 +80,6 @@ ixsmi-vllm corex-info --corex-root /usr/local/corex-4.4.0 --visible-devices 0,1,
 - Step 5：把 KVCacheManager 从 token-id block 升级为真实 K/V tensor block（当前已实现 `KVTensorRef` block table）
 - Step 6：在 HuggingFaceBackend 或 CoreXBackend 中接入 `past_key_values`（当前已实现 HF `use_cache=True` / `past_key_values` 增量解码）
 - Step 7：对接 BI-V150S corex.4.4.0 runtime kernels（当前已实现 corex 驱动初始化、动态库加载和设备计数；模型 prefill/decode kernel 需厂商 SDK API 后映射）
-- Step 8：完善 OpenAI `/v1/completions`、`/v1/chat/completions`
+- Step 8：完善 OpenAI `/v1/completions`、`/v1/chat/completions`（当前已实现 OpenAI 风格 `id/object/created/model/choices/usage` 响应）
 
 > 说明：当前 `corex` 后端是插件化实现；无 runtime 注入时会安全回退到 toy backend。`src/ixsmi_vllm/backends/corex_runtime.py` 已接入 corex.4.4.0 驱动初始化与设备检测；等待模型执行 SDK/API 后，即可把 `init_state()` / `decode()` 映射到 BI-V150S prefill/decode kernels。
