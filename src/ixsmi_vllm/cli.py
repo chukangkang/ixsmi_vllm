@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from ixsmi_vllm import LLM, SamplingParams
+from ixsmi_vllm.backends.corex_runtime import CoreXRuntimeAdapter
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -23,6 +24,16 @@ def build_parser() -> argparse.ArgumentParser:
     generate.add_argument("--temperature", type=float, default=1.0)
     generate.add_argument("--top-p", type=float, default=1.0)
     generate.add_argument("--seed", type=int, default=None)
+
+    corex_info = subparsers.add_parser(
+        "corex-info",
+        help="Check BI-V150S corex.4.4.0 CUDA driver visibility",
+    )
+    corex_info.add_argument("--corex-root", default="/usr/local/corex-4.4.0")
+    corex_info.add_argument(
+        "--visible-devices",
+        default="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15",
+    )
     return parser
 
 
@@ -43,6 +54,19 @@ def main() -> None:
         )
         outputs = llm.generate(args.prompt, params)
         print(outputs[0].outputs[0].text)
+    elif args.command == "corex-info":
+        runtime = CoreXRuntimeAdapter(
+            corex_root=args.corex_root,
+            visible_devices=args.visible_devices,
+        )
+        info = runtime.device_info()
+        if info.initialized:
+            print("✅ BI-V150S corex.4.4.0 调用成功！")
+            print(f"✅ 检测到 GPU 总数：{info.device_count}")
+        else:
+            print(f"❌ BI-V150S corex 初始化失败，错误码：{info.error_code}")
+        print(f"corex_root={info.corex_root}")
+        print(f"visible_devices={info.visible_devices}")
 
 
 if __name__ == "__main__":

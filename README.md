@@ -40,6 +40,16 @@ ixsmi-vllm generate --backend hf --device cpu --model sshleifer/tiny-gpt2 --prom
 ixsmi-vllm generate --prompt "Hello, my name is" --max-tokens 8
 ```
 
+## BI-V150S corex.4.4.0 设备检测
+
+在 BI-V150S 机器上可先执行驱动初始化和 16 卡可见性检测：
+
+```powershell
+ixsmi-vllm corex-info --corex-root /usr/local/corex-4.4.0 --visible-devices 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+```
+
+该命令会设置 `IX_VISIBLE_DEVICES`、`ILUVATAR_COREX_ROOT`、`LD_LIBRARY_PATH`、`VLLM_TARGET_DEVICE`、`CUDA_VISIBLE_DEVICES`、`CUDA_HOME`，加载 `libixthunk.so` / `libcuda.so.1`，并调用 CUDA Driver API 的 `cuInit()` 与 `cuDeviceGetCount()`。
+
 ## 后续实现路线
 
 - Step 1：完成 toy 后端与批处理推理（当前已实现）
@@ -48,7 +58,7 @@ ixsmi-vllm generate --prompt "Hello, my name is" --max-tokens 8
 - Step 4：实现 KV cache block manager / PagedAttention 数据结构（当前已实现 token-id block table，占位真实 KV tensor）
 - Step 5：把 KVCacheManager 从 token-id block 升级为真实 K/V tensor block（当前已实现 `KVTensorRef` block table）
 - Step 6：在 HuggingFaceBackend 或 CoreXBackend 中接入 `past_key_values`（当前已实现 HF `use_cache=True` / `past_key_values` 增量解码）
-- Step 7：对接 BI-V150S corex.4.4.0 runtime kernels（当前已实现 `CoreXRuntimeAdapter` 协议边界；需厂商 SDK 后接入真实 kernel）
+- Step 7：对接 BI-V150S corex.4.4.0 runtime kernels（当前已实现 corex 驱动初始化、动态库加载和设备计数；模型 prefill/decode kernel 需厂商 SDK API 后映射）
 - Step 8：完善 OpenAI `/v1/completions`、`/v1/chat/completions`
 
-> 说明：当前 `corex` 后端是插件化占位实现，会安全回退到 toy backend；等待具体 SDK/API 后即可在 `src/ixsmi_vllm/backends/corex_runtime.py` 中把 `init_state()` / `decode()` 映射到 BI-V150S corex.4.4.0 runtime kernels。
+> 说明：当前 `corex` 后端是插件化实现；无 runtime 注入时会安全回退到 toy backend。`src/ixsmi_vllm/backends/corex_runtime.py` 已接入 corex.4.4.0 驱动初始化与设备检测；等待模型执行 SDK/API 后，即可把 `init_state()` / `decode()` 映射到 BI-V150S prefill/decode kernels。
