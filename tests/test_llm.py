@@ -34,3 +34,16 @@ def test_corex_backend_falls_back_safely() -> None:
     outputs = llm.generate("BI-V150S", SamplingParams(max_tokens=2, temperature=0))
 
     assert len(outputs[0].outputs[0].token_ids) == 2
+
+
+def test_generate_text_skips_special_tokens() -> None:
+    llm = LLM(model="toy")
+    outputs = llm.generate(
+        "Hello, my name is",
+        SamplingParams(max_tokens=8, temperature=0),
+    )
+
+    generated_text = outputs[0].outputs[0].text
+    assert "<pad>" not in generated_text
+    assert "<bos>" not in generated_text
+    assert "<eos>" not in generated_text

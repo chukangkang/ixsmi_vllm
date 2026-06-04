@@ -15,8 +15,13 @@ class SimpleTokenizer:
     def __init__(self) -> None:
         self._token_to_id: OrderedDict[str, int] = OrderedDict()
         self._id_to_token: dict[int, str] = {}
+        self.special_tokens = {"<pad>", "<bos>", "<eos>"}
         for token in ["<pad>", "<bos>", "<eos>"]:
             self._add_token(token)
+
+    @property
+    def special_token_ids(self) -> set[int]:
+        return {self._token_to_id[token] for token in self.special_tokens}
 
     @property
     def vocab_size(self) -> int:
@@ -26,8 +31,13 @@ class SimpleTokenizer:
         pieces = re.findall(r"\w+|[^\w\s]", text, flags=re.UNICODE)
         return [self._add_token(piece) for piece in pieces]
 
-    def decode(self, token_ids: list[int]) -> str:
-        pieces = [self._id_to_token[token_id] for token_id in token_ids]
+    def decode(self, token_ids: list[int], *, skip_special_tokens: bool = True) -> str:
+        pieces = [
+            self._id_to_token[token_id]
+            for token_id in token_ids
+            if not skip_special_tokens
+            or self._id_to_token[token_id] not in self.special_tokens
+        ]
         text = ""
         for piece in pieces:
             if not text or re.match(r"[^\w\s]", piece, flags=re.UNICODE):

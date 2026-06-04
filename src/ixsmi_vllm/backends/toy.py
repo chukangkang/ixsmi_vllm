@@ -14,11 +14,15 @@ class ToyBackend(ModelBackend):
     def next_token_logits(self, token_ids: list[int], vocab_size: int) -> list[float]:
         if vocab_size <= 0:
             raise ValueError("vocab_size must be positive")
+        first_regular_token_id = 3
+        if vocab_size <= first_regular_token_id:
+            return [0.0 for _ in range(vocab_size)]
         digest = hashlib.sha256(",".join(map(str, token_ids)).encode("utf-8")).digest()
-        preferred = int.from_bytes(digest[:4], "big") % vocab_size
+        preferred = first_regular_token_id + (
+            int.from_bytes(digest[:4], "big") % (vocab_size - first_regular_token_id)
+        )
         logits = [-8.0 for _ in range(vocab_size)]
+        for token_id in range(first_regular_token_id):
+            logits[token_id] = -1_000_000.0
         logits[preferred] = 8.0
-        # Keep EOS reachable for stop-like behavior in tests/future demos.
-        if vocab_size > 2:
-            logits[2] = max(logits[2], -1.0)
         return logits
