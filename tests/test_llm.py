@@ -5,6 +5,7 @@ import types
 from ixsmi_vllm import LLM, SamplingParams
 from ixsmi_vllm.backends.base import DecodeResult, DecodeState, KVTensorRef
 from ixsmi_vllm.backends.corex import CoreXBackend
+import ixsmi_vllm.backends.corex as corex_module
 from ixsmi_vllm.backends.hf import HuggingFaceBackend
 from ixsmi_vllm.backends.base import BackendConfig
 from ixsmi_vllm.cache import KVCacheManager
@@ -112,6 +113,36 @@ def test_corex_backend_can_use_injected_runtime() -> None:
     assert result.logits[3] == 1.0
     assert result.state.cache_length == 1
     assert result.kv_tensors[0].key == "corex-k"
+
+
+def test_corex_backend_delegates_to_hf_when_model_is_not_toy(monkeypatch) -> None:
+    class FakeCoreXRuntimeAdapter:
+        def __init__(self):
+            pass
+
+    class FakeHFBackend:
+        def __init__(self, config):
+            self.config = config
+
+        def init_state(self, token_ids):
+            return DecodeState(backend_cache="hf-state")
+
+        def decode(self, token_ids, state):
+            return DecodeResult(
+                logits=[-1_000_000.0, -1_000_000.0, -1_000_000.0, 1.0],
+                state=state,
+            )
+
+    monkeypatch.setattr(corex_module, "CoreXRuntimeAdapter", FakeCoreXRuntimeAdapter)
+    monkeypatch.setattr(corex_module, "HuggingFaceBackend", FakeHFBackend)
+
+    backend = CoreXBackend(BackendConfig(model="sshleifer/tiny-gpt2"))
+    state = backend.init_state([3])
+    result = backend.decode([3], state)
+
+    assert backend.available is True
+    assert state.backend_cache == "hf-state"
+    assert result.logits[3] == 1.0
 
 
 def test_hf_tokenizer_reports_missing_optional_dependency(monkeypatch) -> None:

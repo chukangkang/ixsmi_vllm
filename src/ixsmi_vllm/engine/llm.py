@@ -89,7 +89,7 @@ class LLM:
 
     def _create_tokenizer(self, backend: str, trust_remote_code: bool) -> Tokenizer:
         normalized = backend.lower()
-        if normalized in {"hf", "huggingface"}:
+        if normalized in {"hf", "huggingface", "corex", "bi-v150s", "biv150s"} and self.config.model != "toy":
             return HuggingFaceTokenizer(
                 self.config.model,
                 trust_remote_code=trust_remote_code,
