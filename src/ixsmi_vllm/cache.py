@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
+
+from ixsmi_vllm.backends.base import KVTensorRef
 
 
 @dataclass
@@ -8,6 +11,7 @@ class KVCacheBlock:
     block_id: int
     block_size: int
     token_ids: list[int] = field(default_factory=list)
+    kv_tensors: list[KVTensorRef] = field(default_factory=list)
 
     @property
     def is_full(self) -> bool:
@@ -29,12 +33,19 @@ class KVCacheManager:
         self._next_block_id = 0
         self._block_tables: dict[str, list[KVCacheBlock]] = {}
 
-    def append(self, request_id: str, token_id: int) -> None:
+    def append(
+        self,
+        request_id: str,
+        token_id: int,
+        kv_tensors: list[KVTensorRef] | None = None,
+    ) -> None:
         table = self._block_tables.setdefault(request_id, [])
         if not table or table[-1].is_full:
             table.append(self._allocate_block())
         block = table[-1]
         block.token_ids.append(token_id)
+        if kv_tensors:
+            block.kv_tensors.extend(kv_tensors)
 
     def get(self, request_id: str) -> list[int]:
         return [
@@ -45,6 +56,12 @@ class KVCacheManager:
 
     def block_table(self, request_id: str) -> list[int]:
         return [block.block_id for block in self._block_tables.get(request_id, [])]
+
+    def tensor_blocks(self, request_id: str) -> list[list[KVTensorRef]]:
+        return [list(block.kv_tensors) for block in self._block_tables.get(request_id, [])]
+
+    def raw_blocks(self, request_id: str) -> list[KVCacheBlock]:
+        return list(self._block_tables.get(request_id, []))
 
     def free(self, request_id: str) -> None:
         self._block_tables.pop(request_id, None)

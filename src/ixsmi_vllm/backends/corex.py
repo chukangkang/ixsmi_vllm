@@ -1,7 +1,19 @@
 from __future__ import annotations
 
-from ixsmi_vllm.backends.base import BackendConfig, ModelBackend
+from typing import Protocol
+
+from ixsmi_vllm.backends.base import BackendConfig, DecodeResult, DecodeState, ModelBackend
 from ixsmi_vllm.backends.toy import ToyBackend
+
+
+class CoreXRuntime(Protocol):
+    """Protocol expected from a BI-V150S corex.4.4.0 runtime adapter."""
+
+    def init_state(self, model: str) -> object:
+        ...
+
+    def decode(self, token_ids: list[int], state: object) -> DecodeResult:
+        ...
 
 
 class CoreXBackend(ModelBackend):
@@ -12,12 +24,29 @@ class CoreXBackend(ModelBackend):
     depending on a specific execution backend.
     """
 
-    def __init__(self, config: BackendConfig) -> None:
+    def __init__(self, config: BackendConfig, runtime: CoreXRuntime | None = None) -> None:
         self.config = config
+        self.runtime = runtime
         self._fallback = ToyBackend(config)
-        self.available = False
+        self.available = runtime is not None
+
+    def init_state(self, token_ids: list[int]) -> DecodeState:
+        if self.runtime is None:
+            return DecodeState()
+        return DecodeState(backend_cache=self.runtime.init_state(self.config.model))
+
+    def decode(self, token_ids: list[int], state: DecodeState) -> DecodeResult:
+        if self.runtime is None:
+            return self._fallback.decode(token_ids, state)
+        result = self.runtime.decode(token_ids, state.backend_cache)
+        return DecodeResult(
+            logits=result.logits,
+            state=DecodeState(
+                backend_cache=result.state.backend_cache,
+                cache_length=result.state.cache_length,
+            ),
+            kv_tensors=result.kv_tensors,
+        )
 
     def next_token_logits(self, token_ids: list[int], vocab_size: int) -> list[float]:
-        if not self.available:
-            return self._fallback.next_token_logits(token_ids, vocab_size)
-        raise NotImplementedError("CoreX runtime integration is not implemented yet")
+        return self.decode(token_ids, DecodeState()).logits

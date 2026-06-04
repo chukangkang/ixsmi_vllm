@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 
-from ixsmi_vllm.backends.base import BackendConfig, ModelBackend
+from ixsmi_vllm.backends.base import BackendConfig, DecodeResult, DecodeState, ModelBackend
 
 
 class ToyBackend(ModelBackend):
@@ -11,7 +11,11 @@ class ToyBackend(ModelBackend):
     def __init__(self, config: BackendConfig) -> None:
         self.config = config
 
-    def next_token_logits(self, token_ids: list[int], vocab_size: int) -> list[float]:
+    def decode(self, token_ids: list[int], state: DecodeState) -> DecodeResult:
+        return DecodeResult(logits=self._logits(token_ids), state=state)
+
+    def _logits(self, token_ids: list[int]) -> list[float]:
+        vocab_size = max([*token_ids, 2], default=2) + 1
         if vocab_size <= 0:
             raise ValueError("vocab_size must be positive")
         first_regular_token_id = 3

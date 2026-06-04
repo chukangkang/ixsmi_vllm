@@ -4,7 +4,7 @@ import random
 import uuid
 from typing import Iterable
 
-from ixsmi_vllm.backends.base import BackendConfig, ModelBackend
+from ixsmi_vllm.backends.base import BackendConfig, DecodeState, ModelBackend
 from ixsmi_vllm.backends.corex import CoreXBackend
 from ixsmi_vllm.backends.hf import HuggingFaceBackend
 from ixsmi_vllm.backends.toy import ToyBackend
@@ -64,17 +64,27 @@ class LLM:
             )
             for index, sequence in enumerate(sequences)
         }
+        decode_states = {
+            sequence.request_id: self.backend.init_state(sequence.prompt_token_ids)
+            for sequence in sequences
+        }
 
         results: list[RequestOutput] = []
         while self.scheduler.has_unfinished_requests:
             batch = self.scheduler.schedule()
             for sequence in batch:
-                self._decode_step(sequence, params, rngs[sequence.request_id])
+                decode_states[sequence.request_id] = self._decode_step(
+                    sequence,
+                    params,
+                    rngs[sequence.request_id],
+                    decode_states[sequence.request_id],
+                )
                 self.scheduler.update(sequence)
                 if not sequence.finished:
                     continue
                 results.append(self._to_request_output(sequence))
                 self.cache.free(sequence.request_id)
+                decode_states.pop(sequence.request_id, None)
         return results
 
     def _create_tokenizer(self, backend: str, trust_remote_code: bool) -> Tokenizer:
@@ -108,34 +118,34 @@ class LLM:
         sequence: Sequence,
         params: SamplingParams,
         rng: random.Random,
-    ) -> None:
+        decode_state: DecodeState,
+    ) -> DecodeState:
         if len(sequence.generated_token_ids) >= params.max_tokens:
             sequence.finished = True
             sequence.finish_reason = "length"
-            return
+            return decode_state
 
-        logits = self.backend.next_token_logits(
-            sequence.all_token_ids,
-            self.tokenizer.vocab_size,
-        )
+        decode_result = self.backend.decode(sequence.all_token_ids, decode_state)
+        logits = decode_result.logits
         next_token_id = sample_from_logits(logits, params, rng)
         sequence.generated_token_ids.append(next_token_id)
-        self.cache.append(sequence.request_id, next_token_id)
+        self.cache.append(sequence.request_id, next_token_id, decode_result.kv_tensors)
 
         if self.tokenizer.eos_token_id is not None and next_token_id == self.tokenizer.eos_token_id:
             sequence.finished = True
             sequence.finish_reason = "stop"
-            return
+            return decode_result.state
 
         generated_text = self.tokenizer.decode(sequence.generated_token_ids)
         if self._matches_stop(generated_text, params.stop_sequences):
             sequence.finished = True
             sequence.finish_reason = "stop"
-            return
+            return decode_result.state
 
         if len(sequence.generated_token_ids) >= params.max_tokens:
             sequence.finished = True
             sequence.finish_reason = "length"
+        return decode_result.state
 
     def _matches_stop(self, text: str, stop_sequences: list[str]) -> bool:
         return any(stop and stop in text for stop in stop_sequences)

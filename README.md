@@ -38,7 +38,9 @@ ixsmi-vllm generate --prompt "Hello, my name is" --max-tokens 8
 - Step 2：接入真实 tokenizer / Hugging Face 模型（当前已实现，可选依赖 `[hf]`）
 - Step 3：实现连续批处理（continuous batching）（当前已实现 step-wise scheduler）
 - Step 4：实现 KV cache block manager / PagedAttention 数据结构（当前已实现 token-id block table，占位真实 KV tensor）
-- Step 5：接入 BI-V150S corex.4.4.0 runtime kernels
-- Step 6：完善 OpenAI `/v1/completions`、`/v1/chat/completions`
+- Step 5：把 KVCacheManager 从 token-id block 升级为真实 K/V tensor block（当前已实现 `KVTensorRef` block table）
+- Step 6：在 HuggingFaceBackend 或 CoreXBackend 中接入 `past_key_values`（当前已实现 HF `use_cache=True` / `past_key_values` 增量解码）
+- Step 7：对接 BI-V150S corex.4.4.0 runtime kernels（当前已实现 `CoreXRuntimeAdapter` 协议边界；需厂商 SDK 后接入真实 kernel）
+- Step 8：完善 OpenAI `/v1/completions`、`/v1/chat/completions`
 
-> 说明：当前 `corex` 后端是插件化占位实现，会安全回退到 toy backend；等待具体 SDK/API 后即可在 `src/ixsmi_vllm/backends/corex.py` 中接入真实设备执行。
+> 说明：当前 `corex` 后端是插件化占位实现，会安全回退到 toy backend；等待具体 SDK/API 后即可在 `src/ixsmi_vllm/backends/corex_runtime.py` 中把 `init_state()` / `decode()` 映射到 BI-V150S corex.4.4.0 runtime kernels。

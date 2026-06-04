@@ -1,6 +1,9 @@
 import pytest
 
 from ixsmi_vllm import LLM, SamplingParams
+from ixsmi_vllm.backends.base import DecodeResult, DecodeState, KVTensorRef
+from ixsmi_vllm.backends.corex import CoreXBackend
+from ixsmi_vllm.backends.base import BackendConfig
 from ixsmi_vllm.cache import KVCacheManager
 from ixsmi_vllm.tokenizers import HuggingFaceTokenizer
 
@@ -72,6 +75,40 @@ def test_kv_cache_uses_fixed_size_blocks() -> None:
 
     cache.free("req-1")
     assert cache.get("req-1") == []
+
+
+def test_kv_cache_stores_tensor_refs() -> None:
+    cache = KVCacheManager(block_size=1)
+    ref = KVTensorRef(layer_index=0, key="k-buffer", value="v-buffer")
+
+    cache.append("req-1", 10, [ref])
+
+    tensor_blocks = cache.tensor_blocks("req-1")
+    assert len(tensor_blocks) == 1
+    assert tensor_blocks[0][0].key == "k-buffer"
+    assert tensor_blocks[0][0].value == "v-buffer"
+
+
+def test_corex_backend_can_use_injected_runtime() -> None:
+    class FakeRuntime:
+        def init_state(self, model: str):
+            return {"model": model, "steps": 0}
+
+        def decode(self, token_ids, state):
+            state["steps"] += 1
+            return DecodeResult(
+                logits=[-1_000_000.0, -1_000_000.0, -1_000_000.0, 1.0],
+                state=DecodeState(backend_cache=state, cache_length=state["steps"]),
+                kv_tensors=[KVTensorRef(layer_index=0, key="corex-k", value="corex-v")],
+            )
+
+    backend = CoreXBackend(BackendConfig(model="toy"), runtime=FakeRuntime())
+    state = backend.init_state([3])
+    result = backend.decode([3], state)
+
+    assert result.logits[3] == 1.0
+    assert result.state.cache_length == 1
+    assert result.kv_tensors[0].key == "corex-k"
 
 
 def test_hf_tokenizer_reports_missing_optional_dependency(monkeypatch) -> None:
