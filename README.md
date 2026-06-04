@@ -28,6 +28,12 @@ ixsmi-vllm generate --backend hf --model sshleifer/tiny-gpt2 --prompt "Hello, my
 
 > `[hf]` 会安装 `transformers`、`torch` 和 `accelerate`。如果手动安装依赖且缺少 `accelerate`，框架会自动从 `device_map="auto"` 回退到普通 `cuda`/`cpu` 加载。
 
+如果机器 NVIDIA 驱动过旧，PyTorch 可能会提示 CUDA 初始化警告；可先强制使用 CPU 验证功能：
+
+```powershell
+ixsmi-vllm generate --backend hf --device cpu --model sshleifer/tiny-gpt2 --prompt "Hello, my name is" --max-tokens 16
+```
+
 ## CLI 示例
 
 ```powershell

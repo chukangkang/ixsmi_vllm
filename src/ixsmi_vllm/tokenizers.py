@@ -55,6 +55,6 @@ class HuggingFaceTokenizer:
             self._tokenizer.decode(
                 token_ids,
                 skip_special_tokens=skip_special_tokens,
-                clean_up_tokenization_spaces=True,
+                clean_up_tokenization_spaces=False,
             )
         )
