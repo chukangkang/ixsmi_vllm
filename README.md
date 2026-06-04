@@ -74,6 +74,8 @@ ixsmi-vllm-server --host 0.0.0.0 --port 8000 --model sshleifer/tiny-gpt2 --backe
 
 > 说明：启动服务主要是加载模型，不会持续产生明显 GPU 计算负载；需要向 `/v1/completions` 或 `/v1/chat/completions` 发请求时才会进入 prefill/decode。`corex` 非 toy 模型现在不会静默回退 toy：如果 corex 驱动库初始化失败，会直接报错提示先运行 `ixsmi-vllm corex-info`。
 
+如果出现 `The NVIDIA driver on your system is too old` 或 `PyTorch reports cuda is unavailable`，说明当前 PyTorch CUDA 构建与 corex.4.4.0 驱动/运行时不匹配。请安装天数智凯/corex 提供或推荐的 PyTorch wheel；在验证 API 功能时可临时使用 `--backend hf --device cpu`。
+
 `toy` 后端只用于调试 API 链路，不会加载真实模型，也不会使用 GPU：
 
 ```powershell

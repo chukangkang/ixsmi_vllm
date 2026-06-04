@@ -135,6 +135,7 @@ def test_corex_backend_delegates_to_hf_when_model_is_not_toy(monkeypatch) -> Non
 
     monkeypatch.setattr(corex_module, "CoreXRuntimeAdapter", FakeCoreXRuntimeAdapter)
     monkeypatch.setattr(corex_module, "HuggingFaceBackend", FakeHFBackend)
+    monkeypatch.setattr(CoreXBackend, "_ensure_torch_cuda_available", lambda self: None)
 
     backend = CoreXBackend(BackendConfig(model="sshleifer/tiny-gpt2"))
     state = backend.init_state([3])
@@ -154,6 +155,24 @@ def test_corex_backend_raises_when_driver_init_fails_for_real_model(monkeypatch)
     monkeypatch.setattr(corex_module, "CoreXRuntimeAdapter", FailingCoreXRuntimeAdapter)
 
     with pytest.raises(RuntimeError, match="corex-info"):
+        CoreXBackend(BackendConfig(model="sshleifer/tiny-gpt2"))
+
+
+def test_corex_backend_raises_when_torch_cuda_unavailable(monkeypatch) -> None:
+    class FakeCoreXRuntimeAdapter:
+        def __init__(self):
+            pass
+
+    class FakeCuda:
+        @staticmethod
+        def is_available() -> bool:
+            return False
+
+    fake_torch = types.SimpleNamespace(cuda=FakeCuda())
+    monkeypatch.setattr(corex_module, "CoreXRuntimeAdapter", FakeCoreXRuntimeAdapter)
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+
+    with pytest.raises(RuntimeError, match="cuda is unavailable"):
         CoreXBackend(BackendConfig(model="sshleifer/tiny-gpt2"))
 
 

@@ -70,6 +70,7 @@ class CoreXBackend(ModelBackend):
                 "Run `ixsmi-vllm corex-info` first. If you only want a CPU/GPU "
                 "PyTorch run, use `--backend hf` instead."
             ) from exc
+        self._ensure_torch_cuda_available()
         delegate_config = BackendConfig(
             model=config.model,
             device="cuda" if config.device == "auto" else config.device,
@@ -78,3 +79,23 @@ class CoreXBackend(ModelBackend):
             trust_remote_code=config.trust_remote_code,
         )
         return HuggingFaceBackend(delegate_config)
+
+    def _ensure_torch_cuda_available(self) -> None:
+        try:
+            import torch
+
+            cuda_available = bool(torch.cuda.is_available())
+        except Exception as exc:
+            raise RuntimeError(
+                "CoreX driver libraries were loaded, but PyTorch CUDA initialization failed. "
+                "Install a PyTorch build that matches BI-V150S corex.4.4.0, or run "
+                "with `--backend hf --device cpu` to validate the API on CPU."
+            ) from exc
+
+        if not cuda_available:
+            raise RuntimeError(
+                "CoreX driver libraries were loaded, but PyTorch reports cuda is unavailable. "
+                "This usually means the installed PyTorch build is not compatible with the "
+                "corex.4.4.0 CUDA driver/runtime. Install the vendor-compatible PyTorch wheel, "
+                "then rerun `ixsmi-vllm corex-info` and start with `--backend corex`."
+            )
