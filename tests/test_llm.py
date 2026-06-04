@@ -141,8 +141,20 @@ def test_corex_backend_delegates_to_hf_when_model_is_not_toy(monkeypatch) -> Non
     result = backend.decode([3], state)
 
     assert backend.available is True
+    assert backend._delegate.config.device == "cuda"
     assert state.backend_cache == "hf-state"
     assert result.logits[3] == 1.0
+
+
+def test_corex_backend_raises_when_driver_init_fails_for_real_model(monkeypatch) -> None:
+    class FailingCoreXRuntimeAdapter:
+        def __init__(self):
+            raise OSError("missing corex libraries")
+
+    monkeypatch.setattr(corex_module, "CoreXRuntimeAdapter", FailingCoreXRuntimeAdapter)
+
+    with pytest.raises(RuntimeError, match="corex-info"):
+        CoreXBackend(BackendConfig(model="sshleifer/tiny-gpt2"))
 
 
 def test_hf_tokenizer_reports_missing_optional_dependency(monkeypatch) -> None:

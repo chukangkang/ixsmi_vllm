@@ -68,8 +68,11 @@ ixsmi-vllm-server --host 0.0.0.0 --port 8000 --model sshleifer/tiny-gpt2 --backe
 如果 BI-V150S corex.4.4.0 插件已兼容 CUDA/PyTorch，可使用 `corex` 后端初始化 corex 环境后走 PyTorch/HF 真实模型推理：
 
 ```powershell
+ixsmi-vllm corex-info --corex-root /usr/local/corex-4.4.0
 ixsmi-vllm-server --host 0.0.0.0 --port 8000 --model sshleifer/tiny-gpt2 --backend corex --device auto
 ```
+
+> 说明：启动服务主要是加载模型，不会持续产生明显 GPU 计算负载；需要向 `/v1/completions` 或 `/v1/chat/completions` 发请求时才会进入 prefill/decode。`corex` 非 toy 模型现在不会静默回退 toy：如果 corex 驱动库初始化失败，会直接报错提示先运行 `ixsmi-vllm corex-info`。
 
 `toy` 后端只用于调试 API 链路，不会加载真实模型，也不会使用 GPU：
 
@@ -77,7 +80,7 @@ ixsmi-vllm-server --host 0.0.0.0 --port 8000 --model sshleifer/tiny-gpt2 --backe
 ixsmi-vllm-server --host 0.0.0.0 --port 8000 --model toy --backend toy
 ```
 
-> 当前 `corex` 后端会先初始化 BI-V150S corex 环境和驱动库；在 corex 插件兼容 CUDA/PyTorch 的环境中，会委托 Hugging Face PyTorch 后端执行真实模型。若后续需要使用厂商专用 prefill/decode kernel，可继续替换 `CoreXRuntimeAdapter.decode()`。
+> 当前 `corex` 后端会先初始化 BI-V150S corex 环境和驱动库；在 corex 插件兼容 CUDA/PyTorch 的环境中，会以 `cuda` 设备委托 Hugging Face PyTorch 后端执行真实模型。若后续需要使用厂商专用 prefill/decode kernel，可继续替换 `CoreXRuntimeAdapter.decode()`。
 
 Completions API：
 

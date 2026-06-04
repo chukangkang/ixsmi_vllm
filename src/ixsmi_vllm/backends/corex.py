@@ -64,13 +64,15 @@ class CoreXBackend(ModelBackend):
     def _create_pytorch_delegate(self, config: BackendConfig) -> ModelBackend:
         try:
             CoreXRuntimeAdapter()
-        except (OSError, RuntimeError):
-            # Non-BI-V150S development machines can still instantiate the backend
-            # for tests; real corex deployments should make corex-info pass first.
-            return self._fallback
+        except (OSError, RuntimeError) as exc:
+            raise RuntimeError(
+                "CoreX backend requires BI-V150S corex.4.4.0 driver initialization. "
+                "Run `ixsmi-vllm corex-info` first. If you only want a CPU/GPU "
+                "PyTorch run, use `--backend hf` instead."
+            ) from exc
         delegate_config = BackendConfig(
             model=config.model,
-            device="auto" if config.device == "auto" else config.device,
+            device="cuda" if config.device == "auto" else config.device,
             dtype=config.dtype,
             tensor_parallel_size=config.tensor_parallel_size,
             trust_remote_code=config.trust_remote_code,
