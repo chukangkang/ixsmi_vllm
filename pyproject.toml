@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ixsmi-vllm"
+version = "0.1.0"
+description = "A step-by-step educational vLLM-style inference framework for BI-V150S corex.4.4.0."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "ixsmi-vllm contributors" }]
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+server = ["fastapi>=0.110", "uvicorn[standard]>=0.27"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+ixsmi-vllm = "ixsmi_vllm.cli:main"
+ixsmi-vllm-server = "ixsmi_vllm.entrypoints.openai.api_server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
